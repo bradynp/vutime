@@ -40,7 +40,7 @@ public:
       analogWrite(14, k);
       delay(50);
     }
-    delay(200);
+    delay(250);
     for (int k = 255; k > 0; k -= 30) {
       analogWrite(11, k);
       analogWrite(12, k);
@@ -48,6 +48,7 @@ public:
       analogWrite(14, k);
       delay(50);
     }
+    delay(500);
   }
 
   void timingRoutine() {
@@ -89,13 +90,6 @@ VuDefs c;
 void setup() {
   Serial.begin(9600);
 
-  c.R_n = c.Vfs / c.meter_I_fs - c.meter_R_m;
-  c.meter_power = pow(c.Vfs, 2.0) / c.meter_R_m;
-  if (DEBUGGING) {
-    Serial.println(String("Computed Rn value: ") + c.R_n +
-                   " ohms.\nComputed Power: " + c.meter_power * 1000 +
-                   " milliwatts.\n");
-  }
   pinMode(c.pinmap[0], INPUT);
   pinMode(c.pinmap[1], INPUT);
   pinMode(c.pinmap[2], INPUT);
@@ -116,7 +110,14 @@ void setup() {
   pinMode(c.pinmap[17], INPUT);
   pinMode(c.pinmap[18], INPUT);
 
-  c.testmeters();
+  c.R_n = c.Vfs / c.meter_I_fs - c.meter_R_m;
+  c.meter_power = pow(c.Vfs, 2.0) / c.meter_R_m;
+  if (DEBUGGING) {
+    Serial.println(String("Computed Rn value: ") + c.R_n +
+                   " ohms.\nComputed Power: " + c.meter_power * 1000 +
+                   " milliwatts.\n");
+    c.testmeters();
+  }
 }
 void loop() {
   c.timingRoutine();
