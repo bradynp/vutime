@@ -10,7 +10,7 @@ public:
   0-sw0, sw1, sw2;
   3-resv;
   4-colon;
-  5-btw0, btw1, btw2, btw3, btw4, btw5;
+  5-btw0, btw1, btw2, btw3, btw4, btw5 (halfseconds);
   11-Amm0, Amm1, Amm2, Amm3;
   15-transistor/buzzer;
   16-pot1, pot2;
@@ -28,7 +28,7 @@ public:
   double meter_power;
 
   int offhour = 12;
-  int offminute = 0;
+  int offminute = 34;
   int almhour = 12;
   int almminute = 0;
 
@@ -68,17 +68,18 @@ public:
     }
 
     static double meter_scales[4] = {1.0, 9.0, 5.0, 9.0};
-    for (int k = 0; k <= 3; k++) {
-      int n = pow(10, 3 - k);
-      analogWrite(pinmap[11 + k],
-                  timenumber / n % (10 * n) * 255 / meter_scales[k]);
-    }
-    digitalWrite(pinmap[4], millis() % 2000 > 1000);
 
-    for (int j = 0; j < 6; j++) {
-      digitalWrite(pinmap[5 + j], sec % 60 >> (6 - j) % 10);
+    for (int k = 0; k <= 3; k++) {
     }
-    digitalWrite(pinmap[5 + 5], millis() % 1000 > 500);
+    analogWrite(pinmap[11], (int)((timenumber / 1000) % 10000) * (255.0 / 1.0));
+    analogWrite(pinmap[12], (int)((timenumber / 100) % 1000) * (255.0 / 9.0));
+    analogWrite(pinmap[13], (int)((timenumber / 10) % 100) * (255.0 / 5.0));
+    analogWrite(pinmap[14], (int)((timenumber / 1) % 10) * (255.0 / 9.0));
+
+    digitalWrite(pinmap[4], millis() % 1000 > 500);
+    for (int j = 0; j <= 5; j++) {
+      digitalWrite(pinmap[5 + j], (sec % 60) & (0b1 << j));
+    }
   }
 
   void alarmRoutine() { analogWrite(pinmap[15], LOW); }
@@ -89,6 +90,8 @@ VuDefs c;
 
 void setup() {
   Serial.begin(9600);
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, LOW);
 
   pinMode(c.pinmap[0], INPUT);
   pinMode(c.pinmap[1], INPUT);
