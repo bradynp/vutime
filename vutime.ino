@@ -20,9 +20,9 @@ public:
   PWM pins are 3,5*,6*,9,10,11 marked with hex
   Binary output uses analog pins as digital pins
   */
-    const short pinmap[20] = {2, 3, 4, 0, 0x5, A0, A1, A2, A3, A4,
+    const short pinmap[20] = {2, 0, 4, 0, 0x5, A0, A1, A2, A3, A4,
                               A5, 0x3, 0x9, 0xA, 0xB, 0x6, A6, A7, 0, -1};
-    double meter_R_m       = 100.0;
+    double meter_R_m       = 152.0;
     double meter_I_fs      = 0.001;
     double Vfs             = 5.00;
     double R_n;
@@ -34,31 +34,12 @@ public:
     int almhour   = 12;
     int almminute = 0;
 
-    void testmeters() {
-        for (int k = 0; k < 255; k += 25) {
-            analogWrite(11, k);
-            analogWrite(12, k);
-            analogWrite(13, k);
-            analogWrite(14, k);
-            delay(50);
-        }
-        delay(500);
-        for (int k = 255; k > 0; k -= 25) {
-            analogWrite(11, k);
-            analogWrite(12, k);
-            analogWrite(13, k);
-            analogWrite(14, k);
-            delay(50);
-        }
-        delay(500);
-    }
-
     void timingalmRoutine() {
         // Find time components
         static long hourComponent, minuteComponent, minute_true;
         unsigned long sec   = millis() / 1000;
         minute_true         = sec / 60 + offminute;
-        minuteComponent     = minuteComponent % 60;
+        minuteComponent     = minute_true % 60;
         hourComponent       = (minute_true / 60 + offhour) % 24;
         unsigned timenumber = 100 * hourComponent + minuteComponent;
 
@@ -75,12 +56,13 @@ public:
         if (hourComponent > 12) {
             hourComponent -= 12;
         }
-        static byte metercalibrated_A[2]  = {5, 250};
+        static byte metercalibrated_A[2]  = {5, 240};
         static byte metercalibrated_B[10] = {0, 28, 57, 85, 114,
-                                             142, 170, 200, 226, 255};
+                                             142, 170, 200, 226, 240};
         static byte metercalibrated_C[6]  = {5, 51, 102, 153, 204, 250};
         static byte metercalibrated_D[10] = {0, 28, 57, 85, 114,
-                                             142, 170, 200, 226, 255};
+                                             142, 170, 200, 226, 240};
+
         analogWrite(pinmap[11], metercalibrated_A[hourComponent / 10]);
         analogWrite(pinmap[12], metercalibrated_B[hourComponent % 10]);
         analogWrite(pinmap[13], metercalibrated_C[minuteComponent / 10]);
@@ -137,12 +119,11 @@ void setup() {
     c.meter_power = pow(c.Vfs, 2.0) / c.meter_R_m;
     if (DEBUGGING) {
         Serial.println(String("Computed Rn value: ") + c.R_n +
-                       " ohms.\nComputed Power: " + c.meter_power * 1000 +
-                       " milliwatts.\n");
-        c.testmeters();
+                       " ohms.\r\nComputed Power: " + c.meter_power * 1000 +
+                       " milliwatts.\r\n");
     }
 }
 void loop() {
     c.timingalmRoutine();
-    c.buttonsRoutine();
+    //c.buttonsRoutine();
 }
