@@ -1,6 +1,6 @@
 {
     "sketch": "vutime.ino",
-    "port": "COM20",
+    "port": "COM21",
     "board": "arduino:avr:nano",
     "configuration": "cpu=atmega328",
     "output": ".\\build"
