@@ -8,8 +8,8 @@ public:
     ~VuDefs() {}
     /*
   Pinmap order:
-  0-sw0, sw1, sw2; alarm toggle switch, setting time toggle, setting alarm toggle
-  3-resv;
+  0-sw0, sw1; setting time toggle, setting alarm toggle
+  2-resv, resv;
   4-colon;
   5-btw0, btw1, btw2, btw3, btw4, btw5 (halfseconds);
   11-Amm0, Amm1, Amm2, Amm3;
@@ -29,19 +29,20 @@ public:
     double meter_power;
 
     // Initial time values on startup
-    int offhour   = 7;
-    int offminute = 27;
+    int offhour   = 10;
+    int offminute = 40;
     int almhour   = 12;
     int almminute = 0;
+    int timenumber;
 
     void timingalmRoutine() {
         // Find time components
         static long hourComponent, minuteComponent, minute_true;
-        unsigned long sec   = millis() / 1000;
-        minute_true         = sec / 60 + offminute;
-        minuteComponent     = minute_true % 60;
-        hourComponent       = (minute_true / 60 + offhour) % 24;
-        unsigned timenumber = 100 * hourComponent + minuteComponent;
+        unsigned long sec = millis() / 1000;
+        minute_true       = sec / 60 + offminute;
+        minuteComponent   = minute_true % 60;
+        hourComponent     = (minute_true / 60 + offhour) % 24;
+        timenumber        = 100 * hourComponent + minuteComponent;
 
         // Check alarm
         analogWrite(pinmap[15], LOW);
