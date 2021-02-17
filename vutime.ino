@@ -1,36 +1,56 @@
 #include <Arduino.h>
 
-#define DEBUGGING true
+#define PINSW0  2
+#define PINSW1  0
+#define PINCOL  5 // PWM
+#define PINB0   A0
+#define PINB1   A1
+#define PINB2   A2
+#define PINB3   A3
+#define PINB4   A4
+#define PINB5   A5
+#define PINAM0  3  // PWM
+#define PINAM1  9  // PWM
+#define PINAM2  10 // PWM
+#define PINAM3  11 // PWM
+#define PINBUZ  6  // PWM
+#define PINPOT1 A6
+#define PINPOT2 A7
 
 class VuDefs {
 public:
     VuDefs() {}
     ~VuDefs() {}
-    /*
-  Pinmap order:
-  0-sw0, sw1; setting time toggle, setting alarm toggle
-  2-resv, resv;
-  4-colon;
-  5-btw0, btw1, btw2, btw3, btw4, btw5 (halfseconds);
-  11-Amm0, Amm1, Amm2, Amm3;
-  15-transistor/buzzer;
-  16-pot1, pot2;
-  18-resv;
-  19-resv (-1) signifies vector terminates
-  PWM pins are 3,5*,6*,9,10,11 marked with hex
-  Binary output uses analog pins as digital pins
-  */
-    const short pinmap[20] = {2, 0, 4, 0, 0x5, A0, A1, A2, A3, A4,
-                              A5, 0x3, 0x9, 0xA, 0xB, 0x6, A6, A7, 0, -1};
-    double meter_R_m       = 152.0;
-    double meter_I_fs      = 0.001;
-    double Vfs             = 5.00;
+
+    double meter_R_m  = 152.0;
+    double meter_I_fs = 0.001;
+    double Vfs        = 5.00;
     double R_n;
     double meter_power;
 
+    const int metercalibrated_A[2]  = {5, 240};
+    const int metercalibrated_B[10] = {0, 28, 57, 85, 114, 142, 170, 200, 226, 240};
+    const int metercalibrated_C[6]  = {5, 51, 102, 153, 204, 240};
+    const int metercalibrated_D[10] = {0, 28, 57, 85, 114, 142, 170, 200, 226, 240};
+
+    void testmeters() {
+        analogWrite(PINAM0, 0xFF * 0.85);
+        analogWrite(PINAM1, 0xFF * 0.85);
+        analogWrite(PINAM2, 0xFF * 0.85);
+        analogWrite(PINAM3, 0xFF * 0.85);
+        delay(500);
+    }
+    void hardwarehelper() {
+        R_n         = Vfs / meter_I_fs - meter_R_m;
+        meter_power = pow(Vfs, 2.0) / meter_R_m;
+        Serial.println(String("Computed Rn value: ") + R_n +
+                       " ohms.\r\nComputed Power: " + meter_power * 1000 +
+                       " milliwatts.\r\n");
+    }
+
     // Initial time values on startup
-    int offhour   = 10;
-    int offminute = 40;
+    int offhour   = 12;
+    int offminute = 57;
     int almhour   = 12;
     int almminute = 0;
     int timenumber;
@@ -45,9 +65,9 @@ public:
         timenumber        = 100 * hourComponent + minuteComponent;
 
         // Check alarm
-        analogWrite(pinmap[15], LOW);
-        if (!digitalRead(pinmap[0]) && (hourComponent == almhour) && (minuteComponent == almminute) && (millis() % 1000 > 500)) {
-            analogWrite(pinmap[15], HIGH);
+        analogWrite(PINBUZ, LOW);
+        if (!digitalRead(PINSW0) && (hourComponent == almhour) && (minuteComponent == almminute) && (millis() % 1000 > 500)) {
+            analogWrite(PINBUZ, HIGH);
         }
 
         // Adjust values and output to meters
@@ -57,35 +77,28 @@ public:
         if (hourComponent > 12) {
             hourComponent -= 12;
         }
-        static byte metercalibrated_A[2]  = {5, 240};
-        static byte metercalibrated_B[10] = {0, 28, 57, 85, 114,
-                                             142, 170, 200, 226, 240};
-        static byte metercalibrated_C[6]  = {5, 51, 102, 153, 204, 250};
-        static byte metercalibrated_D[10] = {0, 28, 57, 85, 114,
-                                             142, 170, 200, 226, 240};
 
-        analogWrite(pinmap[11], metercalibrated_A[hourComponent / 10]);
-        analogWrite(pinmap[12], metercalibrated_B[hourComponent % 10]);
-        analogWrite(pinmap[13], metercalibrated_C[minuteComponent / 10]);
-        analogWrite(pinmap[14], metercalibrated_D[minuteComponent % 10]);
+        analogWrite(PINAM0, metercalibrated_A[hourComponent / 10]);
+        analogWrite(PINAM1, metercalibrated_B[hourComponent % 10]);
+        analogWrite(PINAM2, metercalibrated_C[minuteComponent / 10]);
+        analogWrite(PINAM3, metercalibrated_D[minuteComponent % 10]);
 
         // Binary seconds ticker
-        digitalWrite(pinmap[4], millis() % 1000 > 500);
+        digitalWrite(PINCOL, millis() % 1000 > 500);
         for (int j = 0; j <= 5; j++) {
-            digitalWrite(pinmap[5 + j], (sec % 60) & (0b1 << j));
+            digitalWrite(PINB0 + j, (sec % 60) & (0b1 << j));
         }
     }
 
-    //
     void buttonsRoutine() {
-        if (!digitalRead(pinmap[2])) {
-            almhour   = (int) floor(analogRead(pinmap[16]) * 24.0 / 4096.0 + 0.49);
-            almminute = (int) floor(analogRead(pinmap[17]) * 60.0 / 4096.0 + 0.49);
-        }
-        else if (!digitalRead(pinmap[1])) {
-            offhour   = (int) floor(analogRead(pinmap[16]) * 24.0 / 4096.0 + 0.49);
-            offminute = (int) floor(analogRead(pinmap[17]) * 60.0 / 4096.0 + 0.49);
-        }
+        //    if (!digitalRead(PINSW1) {
+        //        almhour   = (int) floor(analogRead(pinmap[16]) * 24.0 / 4096.0 + 0.49);
+        //        almminute = (int) floor(analogRead(pinmap[17]) * 60.0 / 4096.0 + 0.49);
+        //    }
+        //    else if (!digitalRead(PINSW0)) {
+        //        offhour   = (int) floor(analogRead(pinmap[16]) * 24.0 / 4096.0 + 0.49);
+        //        offminute = (int) floor(analogRead(pinmap[17]) * 60.0 / 4096.0 + 0.49);
+        //    }
     }
 };
 VuDefs c;
@@ -95,36 +108,27 @@ void setup() {
     pinMode(LED_BUILTIN, OUTPUT);
     digitalWrite(LED_BUILTIN, LOW);
 
-    // Set mode of all pins
-    pinMode(c.pinmap[0], INPUT);
-    pinMode(c.pinmap[1], INPUT);
-    pinMode(c.pinmap[2], INPUT);
-    pinMode(c.pinmap[3], INPUT);
-    pinMode(c.pinmap[4], OUTPUT);
-    pinMode(c.pinmap[5], OUTPUT);
-    pinMode(c.pinmap[6], OUTPUT);
-    pinMode(c.pinmap[7], OUTPUT);
-    pinMode(c.pinmap[8], OUTPUT);
-    pinMode(c.pinmap[9], OUTPUT);
-    pinMode(c.pinmap[10], OUTPUT);
-    pinMode(c.pinmap[11], OUTPUT);
-    pinMode(c.pinmap[12], OUTPUT);
-    pinMode(c.pinmap[13], OUTPUT);
-    pinMode(c.pinmap[14], OUTPUT);
-    pinMode(c.pinmap[15], OUTPUT);
-    pinMode(c.pinmap[16], INPUT);
-    pinMode(c.pinmap[17], INPUT);
+    // Set pin modes
+    pinMode(PINSW0, INPUT);
+    pinMode(PINSW1, INPUT);
+    pinMode(PINCOL, OUTPUT);
+    pinMode(PINB0, OUTPUT);
+    pinMode(PINB1, OUTPUT);
+    pinMode(PINB2, OUTPUT);
+    pinMode(PINB3, OUTPUT);
+    pinMode(PINB4, OUTPUT);
+    pinMode(PINB5, OUTPUT);
+    pinMode(PINAM0, OUTPUT);
+    pinMode(PINAM1, OUTPUT);
+    pinMode(PINAM2, OUTPUT);
+    pinMode(PINAM3, OUTPUT);
+    pinMode(PINBUZ, OUTPUT);
+    pinMode(PINPOT1, INPUT);
+    pinMode(PINPOT2, INPUT);
 
-    // Hardware value helper
-    c.R_n         = c.Vfs / c.meter_I_fs - c.meter_R_m;
-    c.meter_power = pow(c.Vfs, 2.0) / c.meter_R_m;
-    if (DEBUGGING) {
-        Serial.println(String("Computed Rn value: ") + c.R_n +
-                       " ohms.\r\nComputed Power: " + c.meter_power * 1000 +
-                       " milliwatts.\r\n");
-    }
+    c.testmeters();
 }
 void loop() {
     c.timingalmRoutine();
-    //c.buttonsRoutine();
+    c.buttonsRoutine();
 }
