@@ -1,5 +1,7 @@
 #include <Arduino.h>
 
+#define DEBUGGING false
+
 #define PINSW0  2
 #define PINSW1  0
 #define PINCOL  5 // PWM
@@ -28,16 +30,16 @@ public:
     double R_n;
     double meter_power;
 
-    const int metercalibrated_A[2]  = {5, 240};
-    const int metercalibrated_B[10] = {0, 28, 57, 85, 114, 142, 170, 200, 226, 240};
-    const int metercalibrated_C[6]  = {5, 51, 102, 153, 204, 240};
-    const int metercalibrated_D[10] = {0, 28, 57, 85, 114, 142, 170, 200, 226, 240};
+    const int metercalibrated_A[2]  = {35, 215};
+    const int metercalibrated_B[10] = {1, 21, 42, 73, 95, 130, 161, 184, 207, 235};
+    const int metercalibrated_C[6]  = {17, 58, 104, 151, 198, 245};
+    const int metercalibrated_D[10] = {9, 34, 56, 85, 115, 150, 170, 200, 218, 242};
 
     void testmeters() {
-        analogWrite(PINAM0, 0xFF * 0.85);
-        analogWrite(PINAM1, 0xFF * 0.85);
-        analogWrite(PINAM2, 0xFF * 0.85);
-        analogWrite(PINAM3, 0xFF * 0.85);
+        analogWrite(PINAM0, 0xFF * 0.93);
+        analogWrite(PINAM1, 0xFF * 0.93);
+        analogWrite(PINAM2, 0xFF * 0.93);
+        analogWrite(PINAM3, 0xFF * 0.93);
         delay(500);
     }
     void hardwarehelper() {
@@ -50,15 +52,17 @@ public:
 
     // Initial time values on startup
     int offhour   = 12;
-    int offminute = 57;
+    int offminute = 34;
     int almhour   = 12;
     int almminute = 0;
+
     int timenumber;
+    long hourComponent, minuteComponent, minute_true;
 
     void timingalmRoutine() {
+        const double timescalar = 1.000;
         // Find time components
-        static long hourComponent, minuteComponent, minute_true;
-        unsigned long sec = millis() / 1000;
+        unsigned long sec = timescalar * millis() / 1000;
         minute_true       = sec / 60 + offminute;
         minuteComponent   = minute_true % 60;
         hourComponent     = (minute_true / 60 + offhour) % 24;
@@ -77,12 +81,12 @@ public:
         if (hourComponent > 12) {
             hourComponent -= 12;
         }
-
-        analogWrite(PINAM0, metercalibrated_A[hourComponent / 10]);
-        analogWrite(PINAM1, metercalibrated_B[hourComponent % 10]);
-        analogWrite(PINAM2, metercalibrated_C[minuteComponent / 10]);
-        analogWrite(PINAM3, metercalibrated_D[minuteComponent % 10]);
-
+        if (digitalRead(PINSW1)) {
+            analogWrite(PINAM0, metercalibrated_A[hourComponent / 10]);
+            analogWrite(PINAM1, metercalibrated_B[hourComponent % 10]);
+            analogWrite(PINAM2, metercalibrated_C[minuteComponent / 10]);
+            analogWrite(PINAM3, metercalibrated_D[minuteComponent % 10]);
+        }
         // Binary seconds ticker
         digitalWrite(PINCOL, millis() % 1000 > 500);
         for (int j = 0; j <= 5; j++) {
@@ -91,26 +95,32 @@ public:
     }
 
     void buttonsRoutine() {
-        //    if (!digitalRead(PINSW1) {
-        //        almhour   = (int) floor(analogRead(pinmap[16]) * 24.0 / 4096.0 + 0.49);
-        //        almminute = (int) floor(analogRead(pinmap[17]) * 60.0 / 4096.0 + 0.49);
-        //    }
-        //    else if (!digitalRead(PINSW0)) {
-        //        offhour   = (int) floor(analogRead(pinmap[16]) * 24.0 / 4096.0 + 0.49);
-        //        offminute = (int) floor(analogRead(pinmap[17]) * 60.0 / 4096.0 + 0.49);
-        //    }
+        const double ADC_Depth = pow(2.0, 10.0);
+        if (!digitalRead(PINSW1)) {
+            almhour   = floor(analogRead(PINPOT1) * 24.0 / ADC_Depth + 0.3);
+            almminute = floor(analogRead(PINPOT2) * 60.0 / ADC_Depth + 0.3);
+            analogWrite(PINAM0, metercalibrated_A[almhour / 10]);
+            analogWrite(PINAM1, metercalibrated_B[almhour % 10]);
+            analogWrite(PINAM2, metercalibrated_C[almminute / 10]);
+            analogWrite(PINAM3, metercalibrated_D[almminute % 10]);
+        }
+        else if (!digitalRead(PINSW0)) {
+            unsigned long sec = millis() / 1000;
+            offhour           = floor(analogRead(PINPOT1) * 24.0 / ADC_Depth + 0.3) - (sec / 60) % 60;
+            offminute         = floor(analogRead(PINPOT2) * 60.0 / ADC_Depth + 0.3) - (((sec / 60) % 60) / 60) % 24;
+        }
     }
 };
 VuDefs c;
 
 void setup() {
-    Serial.begin(9600);
+
     pinMode(LED_BUILTIN, OUTPUT);
     digitalWrite(LED_BUILTIN, LOW);
 
     // Set pin modes
-    pinMode(PINSW0, INPUT);
-    pinMode(PINSW1, INPUT);
+    pinMode(PINSW0, INPUT_PULLUP);
+    pinMode(PINSW1, INPUT_PULLUP);
     pinMode(PINCOL, OUTPUT);
     pinMode(PINB0, OUTPUT);
     pinMode(PINB1, OUTPUT);
@@ -127,8 +137,23 @@ void setup() {
     pinMode(PINPOT2, INPUT);
 
     c.testmeters();
+
+    if (DEBUGGING) {
+        Serial.begin(9600);
+    }
 }
 void loop() {
+    while (DEBUGGING) {
+
+        if (Serial.available()) {
+            int b = Serial.readStringUntil('\n').toInt();
+            analogWrite(PINAM0, b);
+            analogWrite(PINAM1, b);
+            analogWrite(PINAM2, b);
+            analogWrite(PINAM3, b);
+            Serial.println(b);
+        }
+    }
     c.timingalmRoutine();
     c.buttonsRoutine();
 }
